@@ -3,7 +3,7 @@ library(leaflet)
 library(RColorBrewer)
 library(rgdal)
 library(RCurl)
-
+library(plotly)
 library(viridis)
 library(tidyverse)
 
@@ -22,7 +22,6 @@ url <- "https://twitter.com/intent/tweet?url=https://thibautfabacher.shinyapps.i
 #                      layer = "ne_50m_admin_0_countries", 
 #                      encoding = "utf-8",use_iconv = T,
 #                      verbose = FALSE)
-# countries<-rmapshaper::ms_simplify(countries ,keep_shapes = T)
 
 #save(countries, file="shapeFile.RData")
 load("shapeFile.RData")
@@ -137,9 +136,10 @@ dataPays<-left_join(data.frame(Pays = countries$NAME%>%as.character(), Pop =coun
 
 maxTotal<- max(dataPays%>%select(-Pop)%>%select_if(is.numeric), na.rm = T)
 maxTotalPrevalence<- max(dataPays%>%select(-Pop)%>%select_if(is.numeric)%>%mutate_all(function(x) x/dataPays$Pop*100000), na.rm = T)
-
+dataPays<-dataPays[!is.na(dataPays$Pays),] 
 dataPays[is.na(dataPays)]<- 0
 
+Top5<-dataPays$Pays[order(dataPays[,dim(dataPays)[2]]%>%unlist(),decreasing = T)][1:5]
 
 
 arrondi<- function(x) 10^(ceiling(log10(x)))
@@ -161,13 +161,14 @@ ui <- bootstrapPage(
                
 ),
 leafletOutput("map", width = "100%", height = "93%"),
-column(8,HTML("<b><a href='https://www.linkedin.com/in/thibaut-fabacher'>Thibaut FABACHER</a></b></br>
+column(6,HTML("<b><a href='https://www.linkedin.com/in/thibaut-fabacher'>Thibaut FABACHER</a></b></br>
                <i>Groupe Methode en Recherche Clinique (Pr. MEYER), Laboratoire de Biostatistique (Pr. SAULEAU)</br><a href='http://www.chru-strasbourg.fr/'  target ='_blank'> CHRU STRASBOURG</a></i>")), 
 column(2,br(), actionButton("twitter_share",
                        label = "Share",
                        icon = icon("twitter"),
                        onclick = sprintf("window.open('%s')",url)) 
 ),
+column(2,br(), checkboxInput("plotEvolT", "Show Evolution",F)),
 column(2, br(),checkboxInput("credits", "Credits", FALSE)),
 
 
@@ -181,6 +182,7 @@ absolutePanel(id = "input_date_control",class = "panel panel-default",bottom = 6
             
 ),
 uiOutput("Credits"),
+uiOutput("plotEvol"),
 absolutePanel(id = "name",class = "panel panel-title",top  = 10, left  = 100, HTML("<h1>COVID-19 outbreak</h1>"),draggable = T)
 )
 
@@ -254,6 +256,7 @@ server <- function(input, output, session) {
             
             leafletProxy("map", data = countries2)%>%
                 addPolygons(fillColor = pal2(log((countries2[[indicator]]/countries2$Pop*100000)+1)),
+                            layerId = ~NAME,
                             fillOpacity = 1,
                             color = "#BDBDC3",
                             weight = 1,
@@ -278,6 +281,7 @@ server <- function(input, output, session) {
           leafletProxy("map", data = countries2)%>%
             addPolygons(fillColor = pal(log((countries2[[indicator]])+1)),
                         fillOpacity = 1,
+                        layerId = ~NAME,
                         color = "#BDBDC3",
                         weight = 1,
                         popup = country_popup)
@@ -313,6 +317,7 @@ server <- function(input, output, session) {
                 addPolygons(fillColor = pal(log(countries2$ncases+1)), 
                             fillOpacity = 1, 
                             color = "#BDBDC3", 
+                            layerId = ~NAME,
                             weight = 1, 
                             popup = country_popup)
         }else{
@@ -345,6 +350,7 @@ server <- function(input, output, session) {
             addPolygons(fillColor = pal2(log(countries2$ncases/countries2$Pop*100000+1)), 
                         fillOpacity = 1, 
                         color = "#BDBDC3", 
+                        layerId = ~NAME,
                         weight = 1, 
                         popup = country_popup)
           
@@ -421,6 +427,58 @@ server <- function(input, output, session) {
       }
         
         })
+    output$plotEvol<-renderUI({ 
+      if (input$plotEvolT) {
+        tagList(absolutePanel(
+          id = "name",
+          class = "panel panel-credits",
+          top = 10,
+          right  = 10,
+        plotlyOutput(outputId = "evol",width = "600px"),
+        actionButton("reset", "Clear graph"),
+        ))
+        }
+      })
+    output$evol <-renderPlotly({
+      df_evo<- dataPays%>%filter(Pays%in% Top5)%>%pivot_longer(cols = -c(Pays,Pop),
+                                                               values_to = "Cases",names_to = "Date")%>%
+        mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy"))) 
+      
+      plot_ly(df_evo,x = ~Date, y = ~Cases, color = ~Pays, type = "scatter",mode = "lines")%>%
+        layout(yaxis = list(type = "log"))
+      
+      
+      
+    })
+    
+    trace<- reactiveValues(names=Top5)
+    
+    observeEvent(input$reset, {
+      for (i in 1: length(trace$names)){
+      plotlyProxy("evol", session) %>%
+        plotlyProxyInvoke("deleteTraces",list(0))
+      }
+          trace$names<- NULL
+    })
+    observeEvent(input$map_shape_click, { 
+      
+      country_Click<- input$map_shape_click$id
+      if (!country_Click%in%trace$names){
+        trace$names<-c(trace$names,country_Click)
+      df_click<- dataPays%>%filter(Pays%in% country_Click)%>%pivot_longer(cols = -c(Pays,Pop),
+                                                               values_to = "Cases",names_to = "Date")%>%
+        mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy"))) 
+      
+ 
+      plotlyProxy("evol", session) %>%
+        plotlyProxyInvoke("addTraces", 
+                          list(x =df_click$Date , 
+                               name =country_Click ,
+                            y = df_click$Cases,
+                            type = 'scatter',
+                              mode = 'lines'))
+      }
+    })
     output$Credits <- renderUI({
         if (input$credits) {
             tagList(
