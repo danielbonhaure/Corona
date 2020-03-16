@@ -21,58 +21,12 @@ url <- "https://twitter.com/intent/tweet?url=https://thibautfabacher.shinyapps.i
 #                      encoding = "utf-8",use_iconv = T,
 #                      verbose = FALSE)
 
-#save(countries, file="shapeFile.RData")
+save(countries, file="shapeFile.RData")
 load("shapeFile.RData")
 
 dataCook<- function(data, pop, countries){
   
-  countries$NAME<-c("Zimbabwe", "Zambia", "Yemen", "Vietnam", "Venezuela", "Vatican", 
-                    "Vanuatu", "Uzbekistan", "Uruguay", "Micronesia", "Marshall Is.", 
-                    "N. Mariana Is.", "U.S. Virgin Is.", "Guam", "American Samoa", 
-                    "Puerto Rico", "United States of America", "S. Geo. and the Is.", 
-                    "Br. Indian Ocean Ter.", "Saint Helena", "Pitcairn Is.", "Anguilla", 
-                    "Falkland Is.", "Cayman Is.", "Bermuda", "British Virgin Is.", 
-                    "Turks and Caicos Is.", "Montserrat", "Jersey", "Guernsey", "Isle of Man", 
-                    "United Kingdom", "United Arab Emirates", "Ukraine", "Uganda", 
-                    "Turkmenistan", "Turkey", "Tunisia", "Trinidad and Tobago", "Tonga", 
-                    "Togo", "Timor-Leste", "Thailand", "Tanzania", "Tajikistan", 
-                    "Taiwan", "Syria", "Switzerland", "Sweden", "eSwatini", "Suriname", 
-                    "S. Sudan", "Sudan", "Sri Lanka", "Spain", "South Korea", "South Africa", 
-                    "Somalia", "Somaliland", "Solomon Is.", "Slovakia", "Slovenia", 
-                    "Singapore", "Sierra Leone", "Seychelles", "Serbia", "Senegal", 
-                    "Saudi Arabia", "São Tomé and Principe", "San Marino", "Samoa", 
-                    "St. Vin. and Gren.", "Saint Lucia", "St. Kitts and Nevis", "Rwanda", 
-                    "Russia", "Romania", "Qatar", "Portugal", "Poland", "Philippines", 
-                    "Peru", "Paraguay", "Papua New Guinea", "Panama", "Palau", "Pakistan", 
-                    "Oman", "Norway", "North Korea", "Nigeria", "Niger", "Nicaragua", 
-                    "New Zealand", "Niue", "Cook Is.", "Netherlands", "Aruba", "Curaçao", 
-                    "Nepal", "Nauru", "Namibia", "Mozambique", "Morocco", "W. Sahara", 
-                    "Montenegro", "Mongolia", "Moldova", "Monaco", "Mexico", "Mauritius", 
-                    "Mauritania", "Malta", "Mali", "Maldives", "Malaysia", "Malawi", 
-                    "Madagascar", "Macedonia", "Luxembourg", "Lithuania", "Liechtenstein", 
-                    "Libya", "Liberia", "Lesotho", "Lebanon", "Latvia", "Laos", "Kyrgyzstan", 
-                    "Kuwait", "Kosovo", "Kiribati", "Kenya", "Kazakhstan", "Jordan", 
-                    "Japan", "Jamaica", "Italy", "Israel", "Palestine", "Ireland", 
-                    "Iraq", "Iran", "Indonesia", "India", "Iceland", "Hungary", "Honduras", 
-                    "Haiti", "Guyana", "Guinea-Bissau", "Guinea", "Guatemala", "Grenada", 
-                    "Greece", "Ghana", "Germany", "Georgia", "Gambia", "Gabon", "France", 
-                    "St. Pierre and Miquelon", "Wallis and Futuna Is.", "St-Martin", 
-                    "St-Barthélemy", "Fr. Polynesia", "New Caledonia", "Fr. S. Antarctic Lands", 
-                    "Åland", "Finland", "Fiji", "Ethiopia", "Estonia", "Eritrea", 
-                    "Eq. Guinea", "El Salvador", "Egypt", "Ecuador", "Dominican Rep.", 
-                    "Dominica", "Djibouti", "Greenland", "Faeroe Is.", "Denmark", 
-                    "Czechia", "N. Cyprus", "Cyprus", "Cuba", "Croatia", "Côte d'Ivoire", 
-                    "Costa Rica", "Dem. Rep. Congo", "Congo", "Comoros", "Colombia", 
-                    "China", "Macao", "Hong Kong", "Chile", "Chad", "Central African Rep.", 
-                    "Cabo Verde", "Canada", "Cameroon", "Cambodia", "Myanmar", "Burundi", 
-                    "Burkina Faso", "Bulgaria", "Brunei", "Brazil", "Botswana", "Bosnia and Herz.", 
-                    "Bolivia", "Bhutan", "Benin", "Belize", "Belgium", "Belarus", 
-                    "Barbados", "Bangladesh", "Bahrain", "Bahamas", "Azerbaijan", 
-                    "Austria", "Australia", "Indian Ocean Ter.", "Heard I. and McDonald Is.", 
-                    "Norfolk Island", "Ashmore and Cartier Is.", "Armenia", "Argentina", 
-                    "Antigua and Barb.", "Angola", "Andorra", "Algeria", "Albania", 
-                    "Afghanistan", "Siachen Glacier", "Antarctica", "Sint Maarten"
-  )
+ 
   data$`Country/Region`<-as.character(data$`Country/Region`)
   data$`Country/Region`[data$`Country/Region`=="Macau"]<- "Macao"
   data$`Country/Region`[data$`Country/Region`=="Mainland China"]<- "China"
@@ -91,7 +45,6 @@ dataCook<- function(data, pop, countries){
   data$`Country/Region`[data$`Country/Region`=="Korea, South"]<- "South Korea"
   data$`Country/Region`[data$`Country/Region`=="Republic of Ireland"]<- "Ireland"
   data$`Country/Region`[data$`Country/Region`=="Taiwan*"]<-"Taiwan"
-  data$`Country/Region`[data$`Country/Region`=="Taiwan*"]<-"Taiwan"
   
   data$`Country/Region`[data$`Country/Region`=="Congo (Kinshasa)"]<-"Congo"
   data$`Country/Region`[data$`Country/Region`=="Cote d'Ivoire"]<-"Côte d'Ivoire"
@@ -99,8 +52,22 @@ dataCook<- function(data, pop, countries){
   data$`Country/Region`[data$`Country/Region`=="Martinique"]<-"France"
   data$`Country/Region`[data$`Country/Region`=="French Guiana"]<-"France"
   data$`Country/Region`[data$`Country/Region`=="Holy See"]<-"Vatican"
+  data$`Country/Region`[data$`Country/Region`=="Cayman Islands"]<-"Cayman Is."
+  data$`Country/Region`[data$`Country/Region`=="Guadeloupe"]<-"France"
+  data$`Country/Region`[data$`Country/Region`=="Antigua and Barbuda"]<-"Antigua and Barb."
   
-  # 
+  data$`Country/Region`[data$`Country/Region`=="Curacao"]<-"Curaçao"
+  data$`Country/Region`[data$`Country/Region`=="Guadeloupe"]<-"France"
+  data$`Country/Region`[data$`Country/Region`=="occupied Palestinian territory"]<-"Palestine"
+  data$`Country/Region`[data$`Country/Region`=="Congo (Brazzaville)"]<-"Congo"
+  data$`Country/Region`[data$`Country/Region`=="Equatorial Guinea"]<-"Guinea"
+  data$`Country/Region`[data$`Country/Region`=="Central African Republic"]<-"Central African Rep."
+  
+  data$`Country/Region`[data$`Country/Region`=="Central African Republic"]<-"Central African Rep."
+  data$`Country/Region`[data$`Country/Region`=="Eswatini"]<-"eSwatini"
+  
+  
+
   # countries$NAME<-as.character(countries$NAME)
   # countries$NAME[is.na(countries$NAME)]<-"Côte d'Ivoire"
   data$Pays<-as.character(unique(countries$NAME)[charmatch(data$`Country/Region`,unique(countries$NAME))])
@@ -160,7 +127,7 @@ ui <- bootstrapPage(
   ),
   leafletOutput("map", width = "100%", height = "93%"),
   column(6,HTML("<b><a href='https://www.linkedin.com/in/thibaut-fabacher'>Thibaut FABACHER</a></b></br>
-               <i>Groupe Methode en Recherche Clinique (Pr. MEYER), Laboratoire de Biostatistique (Pr. SAULEAU)</br><a href='http://www.chru-strasbourg.fr/'  target ='_blank'> CHRU STRASBOURG</a></i>")), 
+               <i>Groupe Methode en Recherche Clinique (Pr. MEYER) <a href='http://www.chru-strasbourg.fr/'  target ='_blank'> CHRU STRASBOURG</a></br>Laboratoire de Biostatistique (Pr. SAULEAU)<a href='https://icube.unistra.fr/'  target ='_blank'> ICUBE</a></i>")), 
   column(2,br(), actionButton("twitter_share",
                               label = "Share",
                               icon = icon("twitter"),
@@ -205,8 +172,8 @@ server <- function(input, output, session) {
   )
   # 
   # 
-  Top5<-reactive( dataPays()$Pays[order(dataPays()[,dim(dataPays())[2]]%>%unlist(),decreasing = T)][1:5]
-  )
+  Top5<-reactive( unique(c(dataPays()$Pays[order(dataPays()[,dim(dataPays())[2]]%>%unlist(),decreasing = T)][1:5]
+  ,"France")))
   # 
   
   #
@@ -472,29 +439,168 @@ server <- function(input, output, session) {
       tagList(absolutePanel(
         id = "name",
         class = "panel panel-credits",
-        top = 10,
-        right  = 10,
+        top = 10,width = "700px",
+        right  = 10,draggable = F,
         plotlyOutput(outputId = "evol",width = "600px"),
-        actionButton("reset", "Clear graph"),
+        actionButton("reset", "Reset Graph"),
+        actionButton("clear", "Clear all traces")
       ))
     }
   })
+  
   output$evol <-renderPlotly({
-    df_evo<- dataPays()%>%filter(Pays%in% Top5())%>%pivot_longer(cols = -c(Pays,Pop),
-                                                                 values_to = "Cases",names_to = "Date")%>%
-      mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
     
-    plot_ly(df_evo,x = ~Date, y = ~Cases, color = ~Pays, type = "scatter",mode = "lines")%>%
-      layout(yaxis = list(type = "log", title = input$choices))
-    
-    
+    if(input$variable %in% c("Total cases/population","Total cases")){
+      df_evo<- dataPays()%>%filter(Pays%in% trace$data)%>%pivot_longer(cols = -c(Pays,Pop),
+                                                                       values_to = "Cases",names_to = "Date")%>%
+        mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
+      
+      if(input$variable=="Total cases/population"){
+        
+        plot_ly(data = df_evo,x = ~Date, y = ~Cases/Pop*100000, color = ~Pays, type = "scatter",mode = "lines")%>%
+          layout(yaxis = list( title = paste(input$choices,"/ 100 000")))
+        
+      }else{
+        
+        
+        
+        plot_ly(data = df_evo,x = ~Date, y = ~Cases, color = ~Pays, type = "scatter",mode = "lines")%>%
+          layout(yaxis = list( title = input$choices))
+        
+      }
+    }else{
+      df_evo<- dataPays()%>%filter(Pays%in% trace$data)
+      
+      
+      
+      for(i in dim( df_evo)[2]:4)  df_evo[i]<- df_evo[i]- df_evo[i-1]
+      
+      
+      df_evo<- df_evo%>%pivot_longer(cols = -c(Pays,Pop),
+                                     values_to = "Cases",names_to = "Date")%>%
+        mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
+      
+      
+      
+      if( input$variable=="New cases over period/population"){
+        
+        plot_ly(data = df_evo,x = ~Date, y = ~Cases/Pop*100000, color = ~Pays, type = "scatter",mode = "lines")%>%
+          layout(yaxis = list( title = paste(input$choices,"/ 100 000/day")))
+        
+      }else{
+        
+        plot_ly(data = df_evo,x = ~Date, y = ~Cases, color = ~Pays, type = "scatter",mode = "lines")%>%
+          layout(yaxis = list( title = paste(input$choices,"/day")))
+        
+      }
+      
+    }
     
   })
   
   trace<- reactiveValues()
   observe({trace$data<-Top5()
   })
+  
   observeEvent(input$reset, {
+    
+    
+    
+    
+    
+    for (i in 1: length(trace$data)){
+      plotlyProxy("evol", session) %>%
+        plotlyProxyInvoke("deleteTraces",list(0))
+      
+    }
+    
+    
+    if(input$variable %in% c("Total cases/population","Total cases")){
+      
+      
+      
+      
+      df_evo<- dataPays()%>%filter(Pays%in% Top5())%>%pivot_longer(cols = -c(Pays,Pop),
+                                                                   values_to = "Cases",names_to = "Date")%>%
+        mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
+      
+      
+      if(input$variable=="Total cases/population"){
+        
+        for (i in Top5()){
+          df_evoi<- df_evo%>%filter(Pays == i)
+          plotlyProxy("evol", session) %>%
+            plotlyProxyInvoke("addTraces",
+                              list(x =df_evoi$Date ,
+                                   name =i ,
+                                   y = df_evoi$Cases/df_evoi$Pop*100000,
+                                   type = 'scatter',
+                                   mode = 'lines'))
+          
+        }
+      }else{
+        for (i in Top5()){
+          df_evoi<- df_evo%>%filter(Pays == i)
+          plotlyProxy("evol", session) %>%
+            plotlyProxyInvoke("addTraces",
+                              list(x =df_evoi$Date ,
+                                   name =i ,
+                                   y = df_evoi$Cases,
+                                   type = 'scatter',
+                                   mode = 'lines'))
+          
+        }
+      }
+    }else{
+      
+      
+      
+      
+      df_evo<- dataPays()%>%filter(Pays%in% Top5())
+
+      for(i in  dim(df_evo)[2]:4) df_evo[i]<-df_evo[i]-df_evo[i-1]
+      
+      
+      df_evo<-df_evo%>%pivot_longer(cols = -c(Pays,Pop),
+                                    values_to = "Cases",names_to = "Date")%>%
+        mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
+      
+      if( input$variable=="New cases over period/population"){
+        
+        for (i in Top5()){
+          df_evoi<- df_evo%>%filter(Pays == i)
+          plotlyProxy("evol", session) %>%
+            plotlyProxyInvoke("addTraces",
+                              list(x =df_evoi$Date ,
+                                   name =i ,
+                                   y = df_evoi$Cases/df_evoi$Pop*100000,
+                                   type = 'scatter',
+                                   mode = 'lines'))
+          
+        }
+        
+      }else{
+        for (i in Top5()){
+          df_evoi<- df_evo%>%filter(Pays == i)
+          plotlyProxy("evol", session) %>%
+            plotlyProxyInvoke("addTraces",
+                              list(x =df_evoi$Date ,
+                                   name =i ,
+                                   y = df_evoi$Cases,
+                                   type = 'scatter',
+                                   mode = 'lines'))
+          
+        }
+        
+      }
+      
+    }
+    
+    trace$data<-Top5()
+  })
+  
+  
+  observeEvent(input$clear, {
     for (i in 1: length(trace$data)){
       plotlyProxy("evol", session) %>%
         plotlyProxyInvoke("deleteTraces",list(0))
@@ -502,23 +608,77 @@ server <- function(input, output, session) {
     trace$data<- NULL
   })
   observeEvent(input$map_shape_click, {
-  
+    
+    
     country_Click<- input$map_shape_click$id
     if (!country_Click%in%trace$data & input$plotEvolT){
+      
       trace$data<-c(trace$data,country_Click)
-      df_click<- dataPays()%>%filter(Pays%in% country_Click)%>%pivot_longer(cols = -c(Pays,Pop),
-                                                                          values_to = "Cases",names_to = "Date")%>%
-        mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
+      
+      if(input$variable %in% c("Total cases/population","Total cases")){
+        df_click<- dataPays()%>%filter(Pays%in% country_Click)%>%pivot_longer(cols = -c(Pays,Pop),
+                                                                              values_to = "Cases",names_to = "Date")%>%
+          mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
+        
+        if(input$variable=="Total cases/population"){
+          plotlyProxy("evol", session) %>%
+            plotlyProxyInvoke("addTraces",
+                              list(x =df_click$Date ,
+                                   name =country_Click ,
+                                   y = df_click$Cases/df_click$Pop*100000,
+                                   type = 'scatter',
+                                   mode = 'lines'))
+          
+        }else{
+          plotlyProxy("evol", session) %>%
+            plotlyProxyInvoke("addTraces",
+                              list(x =df_click$Date ,
+                                   name =country_Click ,
+                                   y = df_click$Cases,
+                                   type = 'scatter',
+                                   mode = 'lines'))
+          
+        }
+      }else{
+        
+        df_click<- dataPays()%>%filter(Pays%in% country_Click)
+        
+        
+        
 
-
-      plotlyProxy("evol", session) %>%
-        plotlyProxyInvoke("addTraces",
-                          list(x =df_click$Date ,
-                               name =country_Click ,
-                               y = df_click$Cases,
-                               type = 'scatter',
-                               mode = 'lines'))
-    }
+        for(i in  dim( df_click)[2]:4)  df_click[i]<- df_click[i]- df_click[i-1]
+        
+        
+        df_click<- df_click%>%pivot_longer(cols = -c(Pays,Pop),
+                                           values_to = "Cases",names_to = "Date")%>%
+          mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
+        
+        
+        
+        if( input$variable=="New cases over period/population"){
+          plotlyProxy("evol", session) %>%
+            plotlyProxyInvoke("addTraces",
+                              list(x =df_click$Date ,
+                                   name =country_Click ,
+                                   y = df_click$Cases/df_click$Pop*100000,
+                                   type = 'scatter',
+                                   mode = 'lines'))
+          
+        }else{
+          plotlyProxy("evol", session) %>%
+            plotlyProxyInvoke("addTraces",
+                              list(x =df_click$Date ,
+                                   name =country_Click ,
+                                   y = df_click$Cases,
+                                   type = 'scatter',
+                                   mode = 'lines'))  
+        }
+        
+      }
+      
+      
+      
+      }
   })
   output$Credits <- renderUI({
     if (input$credits) {
