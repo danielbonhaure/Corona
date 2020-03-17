@@ -6,12 +6,14 @@ library(RCurl)
 library(plotly)
 library(viridis)
 library(tidyverse)
+library(geojsonsf)
+library(sf)
 
 variable <-F
 
 
 # names(data)
-url <- "https://twitter.com/intent/tweet?url=https://thibautfabacher.shinyapps.io/covid-19"
+url <- "https://twitter.com/intent/tweet?url=https://danielbonhaure.shinyapps.io/covid-19"
 # 
 
 # https://www.naturalearthdata.com/downloads/50m-cultural-vectors/50m-admin-0-countries-2/
@@ -22,9 +24,9 @@ url <- "https://twitter.com/intent/tweet?url=https://thibautfabacher.shinyapps.i
 #                      verbose = FALSE)
 
 # save(countries, file="shapeFile.RData")
-load("shapeFile.RData")
+load("data/shapeFile.RData")
 
-dataCook<- function(data, pop, countries){
+dataCook<- function(data, countries){
   
  
   data$`Country/Region`<-as.character(data$`Country/Region`)
@@ -77,39 +79,56 @@ dataCook<- function(data, pop, countries){
   return(dataPays)
 }
 
-#https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population
 
+# ver: https://carto.com/developers/sql-api/reference/#operation/getSQLStatement (para entender format)
+URL <- RCurl::getURL("http://geo.stp.gov.py/user/dgeec/api/v2/sql?q=SELECT%20*%20FROM%20dgeec.paraguay_2002_departamentos&format=GeoJSON")
+# URL <- "data/paraguayDepartamentos.geojson"
+sf_py <- geojsonsf::geojson_sf(URL) %>%
+  dplyr::select(Dpto = departamen)
 
-
-population<- read.csv2("pop.csv",stringsAsFactors = F)
-
-population$pays<-as.character(unique(countries$NAME)[charmatch(population$Country,unique(countries$NAME))])
+URL <- RCurl::getURL("https://www.dgeec.gov.py/microdatos/cuadro/b7dc2DEP01-Paraguay-Poblacion-total-por-anio-calendario-segun-sexo-y-departamento-2000-2025.csv")
+populationPY <- read.csv(text = URL, stringsAsFactors = F) %>%
+# URL <- "data/paraguayPoblacion.csv"
+# populationPY <- read.csv(file = URL, stringsAsFactors = F) %>%
+  dplyr::select(Dpto = X., Pop = X2020) %>%
+  dplyr::filter(dplyr::between(dplyr::row_number(), 2, 19)) %>%
+  dplyr::mutate(Dpto = toupper(Dpto), Pop = as.numeric(Pop)) %>%
+  dplyr::mutate(Dpto = ifelse(Dpto == 'NEEMBUCU', 'ÑEEMBUCU', Dpto))
 
 
 URL <- getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv")
 data <- read.csv(text = URL, check.names = F)
-dataCases<- dataCook(data, pop, countries)
+dataCasesPY <- dataCook(data, countries) %>% 
+  dplyr::filter(Pays == 'Paraguay') %>% 
+  dplyr::mutate(Dpto = 'ASUNCION') %>%
+  dplyr::select(Dpto, dplyr::everything(), -Pays)
 
 URL <- getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv")
 data <- read.csv(text = URL, check.names = F)
-dataDeaths<- dataCook(data, pop, countries)
+dataDeathsPY <- dataCook(data, countries) %>% 
+  dplyr::filter(Pays == 'Paraguay') %>% 
+  dplyr::mutate(Dpto = 'ASUNCION') %>%
+  dplyr::select(Dpto, dplyr::everything(), -Pays) 
 
 
 
-dataPays<-function(data=dataCases) return(data)
-jour<-names(dataCases%>%select(contains( "/")))
+jour<-names(dataCasesPY%>%select(contains( "/")))
 jourDate<- as.Date(jour, "%m/%d/%y")
-names(dataCases)[str_detect(names(dataCases), "/")]<-format.Date(jourDate, "%m/%d/%y")
-names(dataDeaths)[str_detect(names(dataDeaths), "/")]<-format.Date(jourDate, "%m/%d/%y")
+names(dataCasesPY)[str_detect(names(dataCasesPY), "/")]<-format.Date(jourDate, "%m/%d/%y")
+names(dataDeathsPY)[str_detect(names(dataDeathsPY), "/")]<-format.Date(jourDate, "%m/%d/%y")
 
-dataCases<-left_join(data.frame(Pays = countries$NAME%>%as.character(), Pop =countries$POP_EST%>%as.character()%>%as.numeric()),dataCases)
+dataCasesPY <- sf_py %>% sf::st_drop_geometry() %>% 
+  dplyr::left_join(populationPY, by = "Dpto") %>%
+  dplyr::left_join(dataCasesPY, by = "Dpto")
 
-dataDeaths<-left_join(data.frame(Pays = countries$NAME%>%as.character(), Pop =countries$POP_EST%>%as.character()%>%as.numeric()),dataDeaths)
+dataDeathsPY <- sf_py %>% sf::st_drop_geometry() %>% 
+  dplyr::left_join(populationPY, by = "Dpto") %>%
+  dplyr::left_join(dataDeathsPY, by = "Dpto")
 
 arrondi<- function(x) 10^(ceiling(log10(x)))
 
-dataDeaths[is.na(dataDeaths)]<- 0
-dataCases[is.na(dataCases)]<- 0
+dataDeathsPY[is.na(dataDeathsPY)]<- 0
+dataCasesPY[is.na(dataCasesPY)]<- 0
 ui <- bootstrapPage(
   tags$style(type = "text/css", "html, body {width:100%;height:100%}",
              HTML(  ".panel-default {background-color: rgb(256, 256, 256,0.5);
@@ -126,54 +145,53 @@ ui <- bootstrapPage(
              
   ),
   leafletOutput("map", width = "100%", height = "93%"),
-  column(6,HTML("<b><a href='https://www.linkedin.com/in/thibaut-fabacher'>Thibaut FABACHER</a></b></br>
-               <i>Groupe Methode en Recherche Clinique (Pr. MEYER) <a href='http://www.chru-strasbourg.fr/'  target ='_blank'> CHRU STRASBOURG</a></br>Laboratoire de Biostatistique (Pr. SAULEAU)<a href='https://icube.unistra.fr/'  target ='_blank'> ICUBE</a></i>")), 
-  column(2,br(), actionButton("twitter_share",
-                              label = "Share",
-                              icon = icon("twitter"),
-                              onclick = sprintf("window.open('%s')",url)) 
+  column(6, HTML("<b><a href='https://www.linkedin.com/in/daniel-bonhaure/'>Daniel BONHAURE</a></b></br>
+                 Based on work of <b><a href='https://www.linkedin.com/in/thibaut-fabacher'>Thibaut FABACHER</a></b></br>
+                 For the rest of the world: <b><a href='https://thibautfabacher.shinyapps.io/covid-19'>COVID-19 outbreak</a></b>")),
+  column(2, br(), actionButton("twitter_share",
+                               label = "Share",
+                               icon = icon("twitter"),
+                               onclick = sprintf("window.open('%s')",url)) 
   ),
-  column(2,br(),
-         checkboxInput("plotEvolT", "Show Evolution",F)
+  column(2, br(), checkboxInput("plotEvolT", "Show Evolution",F)
   ),
-  column(2, br(),checkboxInput("credits", "Credits", FALSE)),
+  column(2, br(), checkboxInput("credits", "Credits", FALSE)
+  ),
   
   
   absolutePanel(id = "input_date_control",class = "panel panel-default",bottom = 60, left = 10, draggable = F,
                 selectInput("choices", "Cases or Deaths ?", choices = c("Cases","Deaths"),selected = "Cases"),
                 uiOutput("Slider"),
-                helpText("The detail of each country can be obtained by clicking on it."), 
+                helpText("The detail of each departament can be obtained by clicking on it."), 
                 uiOutput("selection"),
                 checkboxInput("legend", "Show legend", TRUE)
                 
   ),
   uiOutput("Credits"),
   uiOutput("plotEvol"),
-  absolutePanel(id = "name",class = "panel panel-title",top  = 10, left  = 100, HTML("<h1>COVID-19 outbreak</h1>"),draggable = T)
+  absolutePanel(id = "name",class = "panel panel-title",top  = 10, left  = 100, HTML("<h1>COVID-19 outbreak - Paraguay</h1>"),draggable = T)
 )
 
 server <- function(input, output, session) {
   
   
-  dataPays<- reactive({
+  dataDpto<- reactive({
     if(!is.null(input$choices)){
       if(input$choices == "Cases"){
-        return( dataCases)
-        
+        return( dataCasesPY)
       }else{
-        return(
-          dataDeaths)
+        return( dataDeathsPY)
       }}
   })
   
-  maxTotal<- reactive( max(dataPays()%>%select(-Pop)%>%select_if(is.numeric), na.rm = T)
+  maxTotal<- reactive( max(dataDpto()%>%select(-Pop)%>%select_if(is.numeric), na.rm = T)
   )
-  maxTotalPrevalence<- reactive(max(dataPays()%>%select(-Pop)%>%select_if(is.numeric)%>%mutate_all(function(x) x/dataPays()$Pop*100000), na.rm = T)
+  maxTotalPrevalence<- reactive( max(dataDpto()%>%select(-Pop)%>%select_if(is.numeric)%>%mutate_all(function(x) x/dataDpto()$Pop*100000), na.rm = T)
   )
   # 
   # 
-  Top5<-reactive( unique(c(dataPays()$Pays[order(dataPays()[,dim(dataPays())[2]]%>%unlist(),decreasing = T)][1:5]
-  ,"France")))
+  Top5<-reactive( unique(dataDpto()$Dpto[order(dataDpto()[,dim(dataDpto())[2]]%>%unlist(),decreasing = T)][1:5])
+  )
   # 
   
   #
@@ -186,17 +204,17 @@ server <- function(input, output, session) {
     # won't need to change dynamically (at least, not unless the
     # entire map is being torn down and recreated).
     
-    leaflet(data = countries) %>%
+    leaflet(data = sf_py) %>%
       
-      setView(0, 30, zoom = 3)
+      setView(-59, -23.5, zoom = 7)
     
     
   })
   
   
-  pal <- reactive(colorNumeric(c("#FFFFFFFF" ,rev(inferno(256))), domain = c(0,log(arrondi(maxTotal())))))
+  pal <- reactive(colorNumeric(c("#FFFFFFFF" ,rev(inferno(256))), domain = c(0,log(arrondi((maxTotal()+1)*10)))))
   
-  pal2 <- reactive(colorNumeric(c("#FFFFFFFF" ,rev(inferno(256))), domain = c(0,log(arrondi(maxTotalPrevalence())))))
+  pal2 <- reactive(colorNumeric(c("#FFFFFFFF" ,rev(inferno(256))), domain = c(0,log(arrondi((maxTotalPrevalence()+1)*10)))))
   
   observe({
     casesDeath<- ifelse(input$choices == "Cases","Cases","Deaths")
@@ -222,13 +240,13 @@ server <- function(input, output, session) {
       
       if(variable =="Total cases/population"){
         # nCases
-        countries2 <- merge(countries,
-                            dataPays(),
-                            by.x = "NAME",
-                            by.y = "Pays",
+        countries2 <- merge(sf_py,
+                            dataDpto(),
+                            by.x = "Dpto",
+                            by.y = "Dpto",
                             sort = FALSE)
-        country_popup <- paste0("<strong>Country: </strong>",
-                                countries2$NAME,
+        country_popup <- paste0("<strong>Dpto: </strong>",
+                                countries2$Dpto,
                                 "<br><strong>",
                                 "Total cases/population :",
                                 
@@ -239,20 +257,20 @@ server <- function(input, output, session) {
         
         leafletProxy("map", data = countries2)%>%
           addPolygons(fillColor = pal2()(log((countries2[[indicator]]/countries2$Pop*100000)+1)),
-                      layerId = ~NAME,
+                      layerId = ~Dpto,
                       fillOpacity = 1,
                       color = "#BDBDC3",
                       weight = 1,
                       popup = country_popup)
         
       }else if(variable =="Total cases"){
-        countries2 <- merge(countries,
-                            dataPays(),
-                            by.x = "NAME",
-                            by.y = "Pays",
+        countries2 <- merge(sf_py,
+                            dataDpto(),
+                            by.x = "Dpto",
+                            by.y = "Dpto",
                             sort = FALSE)
         country_popup <- paste0("<strong>Country: </strong>",
-                                countries2$NAME,
+                                countries2$Dpto,
                                 "<br><strong>",
                                 "Total ",casesDeath," :",
                                 
@@ -264,7 +282,7 @@ server <- function(input, output, session) {
         leafletProxy("map", data = countries2)%>%
           addPolygons(fillColor = pal()(log((countries2[[indicator]])+1)),
                       fillOpacity = 1,
-                      layerId = ~NAME,
+                      layerId = ~Dpto,
                       color = "#BDBDC3",
                       weight = 1,
                       popup = country_popup)
@@ -272,23 +290,23 @@ server <- function(input, output, session) {
         
       }else if(variable =="New cases over period"){
         
-        dataPaysSel<-dataPays()%>%select(Pays, Pop)
+        dataDptoSel<-dataDpto()%>%select(Dpto, Pop)
         if(indicator2[1] == format.Date(min(jourDate)-1, "%m/%d/%y")){
           
-          dataPaysSel$ncases<-dataPays()[,indicator2[2]]
+          dataDptoSel$ncases<-dataDpto()[,indicator2[2]]
         }else{
-          dataPaysSel$ncases<-dataPays()[,indicator2[2]]-dataPays()[,indicator2[1]]
+          dataDptoSel$ncases<-dataDpto()[,indicator2[2]]-dataDpto()[,indicator2[1]]
           
         }
         
         # nCases
-        countries2 <- merge(countries,
-                            dataPaysSel,
-                            by.x = "NAME",
-                            by.y = "Pays",
+        countries2 <- merge(sf_py,
+                            dataDptoSel,
+                            by.x = "Dpto",
+                            by.y = "Dpto",
                             sort = FALSE)
         country_popup <- paste0("<strong>Country: </strong>",
-                                countries2$NAME,
+                                countries2$Dpto,
                                 "<br><strong>",
                                 "New ",casesDeath," over period :",
                                 
@@ -300,28 +318,28 @@ server <- function(input, output, session) {
           addPolygons(fillColor = pal()(log(countries2$ncases+1)),
                       fillOpacity = 1,
                       color = "#BDBDC3",
-                      layerId = ~NAME,
+                      layerId = ~Dpto,
                       weight = 1,
                       popup = country_popup)
       }else{
         
-        dataPaysSel<-dataPays()%>%select(Pays, Pop)
+        dataDptoSel<-dataDpto()%>%select(Dpto, Pop)
         if(indicator2[1] == format.Date(min(jourDate)-1, "%m/%d/%y")){
           
-          dataPaysSel$ncases<-dataPays()[,indicator2[2]]
+          dataDptoSel$ncases<-dataDpto()[,indicator2[2]]
         }else{
-          dataPaysSel$ncases<-dataPays()[,indicator2[2]]-dataPays()[,indicator2[1]]
+          dataDptoSel$ncases<-dataDpto()[,indicator2[2]]-dataDpto()[,indicator2[1]]
           
         }
         
         # nCases
-        countries2 <- merge(countries,
-                            dataPaysSel,
-                            by.x = "NAME",
-                            by.y = "Pays",
+        countries2 <- merge(sf_py,
+                            dataDptoSel,
+                            by.x = "Dpto",
+                            by.y = "Dpto",
                             sort = FALSE)
         country_popup <- paste0("<strong>Country: </strong>",
-                                countries2$NAME,
+                                countries2$Dpto,
                                 "<br><strong>",
                                 "New ",casesDeath," over period / population :",
                                 
@@ -333,22 +351,13 @@ server <- function(input, output, session) {
           addPolygons(fillColor = pal2()(log(countries2$ncases/countries2$Pop*100000+1)),
                       fillOpacity = 1,
                       color = "#BDBDC3",
-                      layerId = ~NAME,
+                      layerId = ~Dpto,
                       weight = 1,
                       popup = country_popup)
         
-        
-        
       }
-      
-      
-      
     }
-    
-  }
-  
-  
-  )
+  })
   
   
   
@@ -362,7 +371,7 @@ server <- function(input, output, session) {
     }else{
       variable<- input$variable
       
-      proxy <- leafletProxy("map", data = countries)
+      proxy <- leafletProxy("map", data = sf_py)
       
       
       # Remove any existing legend, and only if the legend is
@@ -370,27 +379,38 @@ server <- function(input, output, session) {
       proxy %>% clearControls()
       if (input$legend) {
         if(variable %in% c("Total cases/population","New cases over period/population")){
-          proxy %>% addLegend(position = "bottomright",
-                              pal = pal2(),opacity = 1,
-                              bins = log(10^(seq(0,log10(arrondi(maxTotalPrevalence())),0.5))),
-                              value = log(1:10^(log10(arrondi(maxTotalPrevalence())))),
-                              data =log(1:10^(log10(arrondi(maxTotalPrevalence())))),
-                              labFormat = labelFormat(transform = function(x) round(exp(x)) ,suffix = " /100 000")
-                              
-          )
+          if(maxTotalPrevalence()>0) {
+            proxy %>% addLegend(position = "bottomright",
+                                pal = pal2(),opacity = 1,
+                                bins = log(10^(seq(0,log10(arrondi(maxTotalPrevalence())),0.5))),
+                                value = log(1:10^(log10(arrondi(maxTotalPrevalence())))),
+                                data =log(1:10^(log10(arrondi(maxTotalPrevalence())))),
+                                labFormat = labelFormat(transform = function(x) round(exp(x)) ,suffix = " /100 000")
+            )
+          } else {
+            proxy %>% addLegend(position = "bottomright",
+                                pal = pal2(),opacity = 1,
+                                bins = 1, value = c(0,1), data = 0,
+                                labFormat = labelFormat(transform = function(x) x, suffix = " /100 000")
+            )
+          }
           
         }else{
-          
-          
-          
-          proxy %>% addLegend(position = "bottomright",
-                              pal = pal(),opacity = 1,
-                              bins = log(10^(0:log10(arrondi(maxTotal())))),
-                              value = log(1:10^(log10(arrondi(maxTotal())))),
-                              data = log(10^(0:log10(arrondi(maxTotal())))),
-                              labFormat = labelFormat(transform =  exp )
-                              
-          )
+          if(maxTotal()>0) {
+            proxy %>% addLegend(position = "bottomright",
+                                pal = pal(),opacity = 1,
+                                bins = log(10^(0:log10(arrondi(maxTotal())))),
+                                value = log(1:10^(log10(arrondi(maxTotal())))),
+                                data = log(10^(0:log10(arrondi(maxTotal())))),
+                                labFormat = labelFormat(transform =  exp )
+            )
+          } else {
+            proxy %>% addLegend(position = "bottomright",
+                                pal = pal2(),opacity = 1,
+                                bins = 1, value = c(0,1), data = 0,
+                                labFormat = labelFormat(transform = function(x) x)
+            )
+          }
         }
       }
     }
@@ -405,16 +425,12 @@ server <- function(input, output, session) {
       if(input$variable %in% c("Total cases", "Total cases/population")){
         sliderInput("day1", "Day", min(jourDate), max(jourDate),
                     value =  c(max(jourDate)),animate = T, step = 1
-                    
-                    #min(jourDate),
-        )}else{
-          sliderInput("day2", "Day", min(jourDate), max(jourDate),
-                      value =  c(max(jourDate)-7,max(jourDate)),animate = T, step = 1
-                      
-                      #min(jourDate),
-          )
-          
-        }
+        )
+      }else{
+        sliderInput("day2", "Day", min(jourDate), max(jourDate),
+                    value =  c(max(jourDate)-7,max(jourDate)),animate = T, step = 1
+        )
+      }
     }
   })
   
@@ -429,11 +445,9 @@ server <- function(input, output, session) {
                                                "Total deaths"="Total cases",
                                                'Total deaths/population'='Total cases/population' ),
                    label = "Indicator")
-      
-      
     }
-    
   })
+  
   output$plotEvol<-renderUI({
     if (input$plotEvolT) {
       tagList(absolutePanel(
@@ -451,32 +465,29 @@ server <- function(input, output, session) {
   output$evol <-renderPlotly({
     
     if(input$variable %in% c("Total cases/population","Total cases")){
-      df_evo<- dataPays()%>%filter(Pays%in% trace$data)%>%pivot_longer(cols = -c(Pays,Pop),
+      df_evo<- dataDpto()%>%filter(Dpto%in% trace$data)%>%pivot_longer(cols = -c(Dpto,Pop),
                                                                        values_to = "Cases",names_to = "Date")%>%
         mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
       
       if(input$variable=="Total cases/population"){
         
-        plot_ly(data = df_evo,x = ~Date, y = ~Cases/Pop*100000, color = ~Pays, type = "scatter",mode = "lines")%>%
+        plot_ly(data = df_evo,x = ~Date, y = ~Cases/Pop*100000, color = ~Dpto, type = "scatter",mode = "lines")%>%
           layout(yaxis = list( title = paste(input$choices,"/ 100 000")))
         
       }else{
         
-        
-        
-        plot_ly(data = df_evo,x = ~Date, y = ~Cases, color = ~Pays, type = "scatter",mode = "lines")%>%
+        plot_ly(data = df_evo,x = ~Date, y = ~Cases, color = ~Dpto, type = "scatter",mode = "lines")%>%
           layout(yaxis = list( title = input$choices))
         
       }
     }else{
-      df_evo<- dataPays()%>%filter(Pays%in% trace$data)
-      
+      df_evo<- dataDpto()%>%filter(Dpto%in% trace$data)
       
       
       for(i in dim( df_evo)[2]:4)  df_evo[i]<- df_evo[i]- df_evo[i-1]
       
       
-      df_evo<- df_evo%>%pivot_longer(cols = -c(Pays,Pop),
+      df_evo<- df_evo%>%pivot_longer(cols = -c(Dpto,Pop),
                                      values_to = "Cases",names_to = "Date")%>%
         mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
       
@@ -484,12 +495,12 @@ server <- function(input, output, session) {
       
       if( input$variable=="New cases over period/population"){
         
-        plot_ly(data = df_evo,x = ~Date, y = ~Cases/Pop*100000, color = ~Pays, type = "scatter",mode = "lines")%>%
+        plot_ly(data = df_evo,x = ~Date, y = ~Cases/Pop*100000, color = ~Dpto, type = "scatter",mode = "lines")%>%
           layout(yaxis = list( title = paste(input$choices,"/ 100 000/day")))
         
       }else{
         
-        plot_ly(data = df_evo,x = ~Date, y = ~Cases, color = ~Pays, type = "scatter",mode = "lines")%>%
+        plot_ly(data = df_evo,x = ~Date, y = ~Cases, color = ~Dpto, type = "scatter",mode = "lines")%>%
           layout(yaxis = list( title = paste(input$choices,"/day")))
         
       }
@@ -504,10 +515,6 @@ server <- function(input, output, session) {
   
   observeEvent(input$reset, {
     
-    
-    
-    
-    
     for (i in 1: length(trace$data)){
       plotlyProxy("evol", session) %>%
         plotlyProxyInvoke("deleteTraces",list(0))
@@ -518,9 +525,7 @@ server <- function(input, output, session) {
     if(input$variable %in% c("Total cases/population","Total cases")){
       
       
-      
-      
-      df_evo<- dataPays()%>%filter(Pays%in% Top5())%>%pivot_longer(cols = -c(Pays,Pop),
+      df_evo<- dataDpto()%>%filter(Dpto%in% Top5())%>%pivot_longer(cols = -c(Dpto,Pop),
                                                                    values_to = "Cases",names_to = "Date")%>%
         mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
       
@@ -528,7 +533,7 @@ server <- function(input, output, session) {
       if(input$variable=="Total cases/population"){
         
         for (i in Top5()){
-          df_evoi<- df_evo%>%filter(Pays == i)
+          df_evoi<- df_evo%>%filter(Dpto == i)
           plotlyProxy("evol", session) %>%
             plotlyProxyInvoke("addTraces",
                               list(x =df_evoi$Date ,
@@ -536,11 +541,12 @@ server <- function(input, output, session) {
                                    y = df_evoi$Cases/df_evoi$Pop*100000,
                                    type = 'scatter',
                                    mode = 'lines'))
-          
         }
+        
       }else{
+        
         for (i in Top5()){
-          df_evoi<- df_evo%>%filter(Pays == i)
+          df_evoi<- df_evo%>%filter(Dpto == i)
           plotlyProxy("evol", session) %>%
             plotlyProxyInvoke("addTraces",
                               list(x =df_evoi$Date ,
@@ -550,25 +556,26 @@ server <- function(input, output, session) {
                                    mode = 'lines'))
           
         }
+        
       }
+      
+      
     }else{
       
       
-      
-      
-      df_evo<- dataPays()%>%filter(Pays%in% Top5())
+      df_evo<- dataDpto()%>%filter(Dpto%in% Top5())
 
       for(i in  dim(df_evo)[2]:4) df_evo[i]<-df_evo[i]-df_evo[i-1]
       
       
-      df_evo<-df_evo%>%pivot_longer(cols = -c(Pays,Pop),
+      df_evo<-df_evo%>%pivot_longer(cols = -c(Dpto,Pop),
                                     values_to = "Cases",names_to = "Date")%>%
         mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
       
       if( input$variable=="New cases over period/population"){
         
         for (i in Top5()){
-          df_evoi<- df_evo%>%filter(Pays == i)
+          df_evoi<- df_evo%>%filter(Dpto == i)
           plotlyProxy("evol", session) %>%
             plotlyProxyInvoke("addTraces",
                               list(x =df_evoi$Date ,
@@ -581,7 +588,7 @@ server <- function(input, output, session) {
         
       }else{
         for (i in Top5()){
-          df_evoi<- df_evo%>%filter(Pays == i)
+          df_evoi<- df_evo%>%filter(Dpto == i)
           plotlyProxy("evol", session) %>%
             plotlyProxyInvoke("addTraces",
                               list(x =df_evoi$Date ,
@@ -616,7 +623,7 @@ server <- function(input, output, session) {
       trace$data<-c(trace$data,country_Click)
       
       if(input$variable %in% c("Total cases/population","Total cases")){
-        df_click<- dataPays()%>%filter(Pays%in% country_Click)%>%pivot_longer(cols = -c(Pays,Pop),
+        df_click<- dataDpto()%>%filter(Dpto%in% country_Click)%>%pivot_longer(cols = -c(Dpto,Pop),
                                                                               values_to = "Cases",names_to = "Date")%>%
           mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
         
@@ -641,7 +648,7 @@ server <- function(input, output, session) {
         }
       }else{
         
-        df_click<- dataPays()%>%filter(Pays%in% country_Click)
+        df_click<- dataDpto()%>%filter(Dpto%in% country_Click)
         
         
         
@@ -649,7 +656,7 @@ server <- function(input, output, session) {
         for(i in  dim( df_click)[2]:4)  df_click[i]<- df_click[i]- df_click[i-1]
         
         
-        df_click<- df_click%>%pivot_longer(cols = -c(Pays,Pop),
+        df_click<- df_click%>%pivot_longer(cols = -c(Dpto,Pop),
                                            values_to = "Cases",names_to = "Date")%>%
           mutate(Date= lubridate::parse_date_time(Date, orders = c("mdy")))
         
@@ -690,20 +697,20 @@ server <- function(input, output, session) {
           left  = "45%",
           HTML(
             "<h1> Data Source : </h1>
-<p> <li><a href='https://coronavirus.jhu.edu/map.html'>Coronavirus COVID-19 Global Cases map Johns Hopkins University</a></li>
+  <p> <li><a href='https://coronavirus.jhu.edu/map.html'>Coronavirus COVID-19 Global Cases map Johns Hopkins University</a></li>
   <li>COVID-19 Cases : <a href='https://github.com/CSSEGISandData/COVID-19' target='_blank'>Github Johns Hopkins University</a></li>
-  <li>World population : <a href='https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population' target='_blank'>Wikipedia</a></li>
-  <li>Shapefile : <a href='https://www.naturalearthdata.com/downloads/50m-cultural-vectors/50m-admin-0-countries-2/' target='_blank'>Natural Earth Data</a></li>
- <li> <a href ='https://github.com/DrFabach/Corona' target='_blank'>Code on Github </a></li>
- <li> <a href = 'https://www.r-project.org/'  target='_blank'>The R Project for Statistical Computing</a></li>
+  <li>Paraguay population : <a href='https://www.dgeec.gov.py/microdatos/cuadro/b7dc2DEP01-Paraguay-Poblacion-total-por-anio-calendario-segun-sexo-y-departamento-2000-2025.csv' target='_blank'>Paraguay Population - DGEEC</a></li>
+  <li>Paraguay GeoJSON : <a href='http://geo.stp.gov.py/user/dgeec/api/v2/sql?q=SELECT%20*%20FROM%20dgeec.paraguay_2002_departamentos&format=GeoJSON' target='_blank'>Paraguay Departments - DGEEC</a></li>
+  <li>Paraguay Shapefile : <a href='http://geo.stp.gov.py/user/dgeec/tables/paraguay_2002_departamentos/public' target='_blank'>Paraguay Departments - DGEEC</a></li>
+  <li> <a href ='https://github.com/danielbonhaure/Corona' target='_blank'>Code on Github (Paraguay version)</a></li>
+  <li> <a href ='https://github.com/DrFabach/Corona' target='_blank'>Code on Github (Original version)</a></li>
+  <li> <a href = 'https://www.r-project.org/'  target='_blank'>The R Project for Statistical Computing</a></li>
   <li> <a href = 'https://shiny.rstudio.com/' target='_blank'>Shiny R package</a></li>
-   <li> <a href = 'https://leafletjs.com/' target='_blank'>Leaflet </a></li>
-                                                                                                                           </p>"
+  <li> <a href = 'https://leafletjs.com/' target='_blank'>Leaflet </a></li> </p>"
           ),
           draggable = T
         )
       )
-      
     }
     
   })
