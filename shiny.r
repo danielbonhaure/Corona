@@ -96,19 +96,13 @@ populationPY <- read.csv(text = URL, stringsAsFactors = F) %>%
   dplyr::mutate(Dpto = ifelse(Dpto == 'NEEMBUCU', 'ÑEEMBUCU', Dpto))
 
 
-URL <- getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv")
-data <- read.csv(text = URL, check.names = F)
-dataCasesPY <- dataCook(data, countries) %>% 
-  dplyr::filter(Pays == 'Paraguay') %>% 
-  dplyr::mutate(Dpto = 'ASUNCION') %>%
-  dplyr::select(Dpto, dplyr::everything(), -Pays)
+# URL <- RCurl::getURL("https://raw.githubusercontent.com/danielbonhaure/Corona/master/data/py_confirmed_cases.csv")
+# data <- read.csv(text = URL, check.names = F)
+dataCasesPY <- read.csv(file = "data/py_confirmed_cases.csv", check.names = F, stringsAsFactors = F) %>% dplyr::select(-Cod)
 
-URL <- getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv")
-data <- read.csv(text = URL, check.names = F)
-dataDeathsPY <- dataCook(data, countries) %>% 
-  dplyr::filter(Pays == 'Paraguay') %>% 
-  dplyr::mutate(Dpto = 'ASUNCION') %>%
-  dplyr::select(Dpto, dplyr::everything(), -Pays) 
+# URL <- RCurl::getURL("https://raw.githubusercontent.com/danielbonhaure/Corona/master/data/py_deaths.csv")
+# data <- read.csv(text = URL, check.names = F)
+dataDeathsPY <- read.csv(file = "data/py_deaths.csv", check.names = F, stringsAsFactors = F) %>% dplyr::select(-Cod)
 
 
 
@@ -212,9 +206,23 @@ server <- function(input, output, session) {
   })
   
   
-  pal <- reactive(colorNumeric(c("#FFFFFFFF" ,rev(inferno(256))), domain = c(0,log(arrondi((maxTotal()+1)*10)))))
+  pal <- reactive({
+    if(!is.null(input$choices)){
+      if(input$choices == "Deaths"){
+        return( colorNumeric(c("#FFFFFFFF" , rev(inferno(maxTotal()+1, begin = 0, end = 0.6))), domain = c(0,log(arrondi(maxTotal()+1)))) )
+      }else{
+        return( colorNumeric(c("#FFFFFFFF" , rev(inferno(maxTotal()+1, begin = 0.3, end = 0.9))), domain = c(0,log(arrondi(maxTotal()+1)))) )
+      }}
+  })
+  pal2 <- reactive({
+    if(!is.null(input$choices)){
+      if(input$choices == "Deaths"){
+        return( colorNumeric(c("#FFFFFFFF", rev(inferno(maxTotal()+1, begin = 0, end = 0.6))), domain = c(0,log(arrondi(maxTotalPrevalence()+1)))) )
+      }else{
+        return( colorNumeric(c("#FFFFFFFF", rev(inferno(maxTotal()+1, begin = 0.3, end = 0.9))), domain = c(0,log(arrondi(maxTotalPrevalence()+1)))) )
+      }}
+  })
   
-  pal2 <- reactive(colorNumeric(c("#FFFFFFFF" ,rev(inferno(256))), domain = c(0,log(arrondi((maxTotalPrevalence()+1)*10)))))
   
   observe({
     casesDeath<- ifelse(input$choices == "Cases","Cases","Deaths")
@@ -252,7 +260,9 @@ server <- function(input, output, session) {
                                 
                                 
                                 " </strong>",
-                                round(countries2[[indicator]]/countries2$Pop*100000,2)," /100 000")
+                                round(countries2[[indicator]]/countries2$Pop*100000,2)," /100 000",
+                                "<br><strong>Population : </strong>",
+                                round(countries2$Pop))
         
         
         leafletProxy("map", data = countries2)%>%
@@ -276,7 +286,9 @@ server <- function(input, output, session) {
                                 
                                 
                                 " </strong>",
-                                round(countries2[[indicator]],2))
+                                round(countries2[[indicator]],2),
+                                "<br><strong>Population : </strong>",
+                                round(countries2$Pop))
         
         
         leafletProxy("map", data = countries2)%>%
@@ -312,7 +324,9 @@ server <- function(input, output, session) {
                                 
                                 
                                 " </strong>",
-                                countries2$ncases)
+                                countries2$ncases,
+                                "<br><strong>Population : </strong>",
+                                round(countries2$Pop))
         
         leafletProxy("map", data = countries2)%>%
           addPolygons(fillColor = pal()(log(countries2$ncases+1)),
@@ -345,7 +359,9 @@ server <- function(input, output, session) {
                                 
                                 
                                 " </strong>",
-                                round(countries2$ncases/countries2$Pop*100000,2)," /100 000")
+                                round(countries2$ncases/countries2$Pop*100000,2)," /100 000",
+                                "<br><strong>Population : </strong>",
+                                round(countries2$Pop))
         
         leafletProxy("map", data = countries2)%>%
           addPolygons(fillColor = pal2()(log(countries2$ncases/countries2$Pop*100000+1)),
@@ -379,7 +395,7 @@ server <- function(input, output, session) {
       proxy %>% clearControls()
       if (input$legend) {
         if(variable %in% c("Total cases/population","New cases over period/population")){
-          if(maxTotalPrevalence()>0) {
+          if(round(maxTotalPrevalence())>0) {
             proxy %>% addLegend(position = "bottomright",
                                 pal = pal2(),opacity = 1,
                                 bins = log(10^(seq(0,log10(arrondi(maxTotalPrevalence())),0.5))),
@@ -396,7 +412,7 @@ server <- function(input, output, session) {
           }
           
         }else{
-          if(maxTotal()>0) {
+          if(maxTotal()>1) {
             proxy %>% addLegend(position = "bottomright",
                                 pal = pal(),opacity = 1,
                                 bins = log(10^(0:log10(arrondi(maxTotal())))),
@@ -406,7 +422,7 @@ server <- function(input, output, session) {
             )
           } else {
             proxy %>% addLegend(position = "bottomright",
-                                pal = pal2(),opacity = 1,
+                                pal = pal(),opacity = 1,
                                 bins = 1, value = c(0,1), data = 0,
                                 labFormat = labelFormat(transform = function(x) x)
             )
@@ -697,8 +713,8 @@ server <- function(input, output, session) {
           left  = "45%",
           HTML(
             "<h1> Data Source : </h1>
-  <p> <li><a href='https://coronavirus.jhu.edu/map.html'>Coronavirus COVID-19 Global Cases map Johns Hopkins University</a></li>
-  <li>COVID-19 Cases : <a href='https://github.com/CSSEGISandData/COVID-19' target='_blank'>Github Johns Hopkins University</a></li>
+  <p> <li><a href='https://www.mspbs.gov.py/covid-19.php'>Ministerio de Salud Publica y Bienestar Social - Paraguay</a></li>
+  <li>COVID-19 Cases : <a href='https://www.mspbs.gov.py/reportes-covid19.html' target='_blank'>REPORTE PARAGUAY MSPBS COVID19</a></li>
   <li>Paraguay population : <a href='https://www.dgeec.gov.py/microdatos/cuadro/b7dc2DEP01-Paraguay-Poblacion-total-por-anio-calendario-segun-sexo-y-departamento-2000-2025.csv' target='_blank'>Paraguay Population - DGEEC</a></li>
   <li>Paraguay GeoJSON : <a href='http://geo.stp.gov.py/user/dgeec/api/v2/sql?q=SELECT%20*%20FROM%20dgeec.paraguay_2002_departamentos&format=GeoJSON' target='_blank'>Paraguay Departments - DGEEC</a></li>
   <li>Paraguay Shapefile : <a href='http://geo.stp.gov.py/user/dgeec/tables/paraguay_2002_departamentos/public' target='_blank'>Paraguay Departments - DGEEC</a></li>
