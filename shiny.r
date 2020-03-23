@@ -44,11 +44,11 @@ populationPY <- read.csv(text = URL, stringsAsFactors = F) %>%
 
 
 # URL <- RCurl::getURL("https://raw.githubusercontent.com/danielbonhaure/Corona/master/data/py_confirmed_cases.csv")
-# data <- read.csv(text = URL, check.names = F)
+# dataCasesPY <- read.csv(text = URL, check.names = F, stringsAsFactors = F) %>% dplyr::select(-Cod)
 dataCasesPY <- read.csv(file = "data/py_confirmed_cases.csv", check.names = F, stringsAsFactors = F) %>% dplyr::select(-Cod)
 
 # URL <- RCurl::getURL("https://raw.githubusercontent.com/danielbonhaure/Corona/master/data/py_deaths.csv")
-# data <- read.csv(text = URL, check.names = F)
+# dataDeathsPY <- read.csv(text = URL, check.names = F, stringsAsFactors = F) %>% dplyr::select(-Cod)
 dataDeathsPY <- read.csv(file = "data/py_deaths.csv", check.names = F, stringsAsFactors = F) %>% dplyr::select(-Cod)
 
 
@@ -209,7 +209,9 @@ server <- function(input, output, session) {
                                 " </strong>",
                                 round(countries2[[indicator]]/countries2$Pop*100000,2)," /100 000",
                                 "<br><strong>Population : </strong>",
-                                round(countries2$Pop))
+                                round(countries2$Pop),
+                                "<br><strong>Date : </strong>",
+                                format.Date(as.Date(indicator, "%m/%d/%y"), "%Y/%m/%d"))
         
         
         leafletProxy("map", data = countries2)%>%
@@ -235,7 +237,9 @@ server <- function(input, output, session) {
                                 " </strong>",
                                 round(countries2[[indicator]],2),
                                 "<br><strong>Population : </strong>",
-                                round(countries2$Pop))
+                                round(countries2$Pop),
+                                "<br><strong>Date : </strong>",
+                                format.Date(as.Date(indicator, "%m/%d/%y"), "%Y/%m/%d"))
         
         
         leafletProxy("map", data = countries2)%>%
@@ -273,7 +277,11 @@ server <- function(input, output, session) {
                                 " </strong>",
                                 countries2$ncases,
                                 "<br><strong>Population : </strong>",
-                                round(countries2$Pop))
+                                round(countries2$Pop),
+                                "<br><strong>Period : </strong>",
+                                format.Date(as.Date(indicator2[1], "%m/%d/%y"), "%Y/%m/%d"), 
+                                " - ", 
+                                format.Date(as.Date(indicator2[2], "%m/%d/%y"), "%Y/%m/%d"))
         
         leafletProxy("map", data = countries2)%>%
           addPolygons(fillColor = pal()(log(countries2$ncases+1)),
@@ -308,7 +316,11 @@ server <- function(input, output, session) {
                                 " </strong>",
                                 round(countries2$ncases/countries2$Pop*100000,2)," /100 000",
                                 "<br><strong>Population : </strong>",
-                                round(countries2$Pop))
+                                round(countries2$Pop),
+                                "<br><strong>Period : </strong>",
+                                format.Date(as.Date(indicator2[1], "%m/%d/%y"), "%Y/%m/%d"), 
+                                " - ", 
+                                format.Date(as.Date(indicator2[2], "%m/%d/%y"), "%Y/%m/%d"))
         
         leafletProxy("map", data = countries2)%>%
           addPolygons(fillColor = pal2()(log(countries2$ncases/countries2$Pop*100000+1)),
