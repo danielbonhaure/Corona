@@ -14,17 +14,7 @@ variable <-F
 
 # names(data)
 url <- "https://twitter.com/intent/tweet?url=https://danielbonhaure.shinyapps.io/covid-19"
-# 
-
-# https://www.naturalearthdata.com/downloads/50m-cultural-vectors/50m-admin-0-countries-2/
-
-# countries <- readOGR(dsn ="ne_50m_admin_0_countries", 
-#                      layer = "ne_50m_admin_0_countries", 
-#                      encoding = "utf-8",use_iconv = T,
-#                      verbose = FALSE)
-
-# save(countries, file="shapeFile.RData")
-load("data/shapeFile.RData")
+#     
 
 
 # ver: https://carto.com/developers/sql-api/reference/#operation/getSQLStatement (para entender format)
